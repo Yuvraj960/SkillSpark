@@ -3,7 +3,7 @@
 
 :root {
     --main-color: #219B9D;
-    --secondary-color: #4C1F7A;
+    --secondary-color: #09122C;
     --tertiary-color: #80C4E9;
     --color-white: #fff;
 }
@@ -94,6 +94,10 @@ h1 {
 .footer__card {
     width: 25%;
     margin: 2rem;
+}
+
+.footer__card a {
+    color: white;
 }
 
 .footer__copyright {
