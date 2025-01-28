@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
@@ -10,15 +11,17 @@ const Navbar = () => {
 
     useEffect(() => {
         const token = localStorage.getItem("token");
-        if (token) {
-            const decoded = JSON.parse(atob(token.split(".")[1]));
+        const savedUsername = localStorage.getItem("username");
+        if (token && savedUsername) {
+            // const decoded = JSON.parse(atob(token.split(".")[1]));
             setLoggedIn(true);
-            setUsername(decoded.username);
+            setUsername(username);
         }
     }, []);
 
     const handleLogout = () => {
         localStorage.removeItem("token");
+        localStorage.removeItem("username");
         setLoggedIn(false);
         navigate("/login");
     };
@@ -27,9 +30,16 @@ const Navbar = () => {
         <nav className="navbar__container">
             <div className="navbar__logo">
                 <h1>
-                    <NavLink to={"/"}>
-                        <img src={Logo} alt="logo" />
-                    </NavLink>
+                    {" "}
+                    {!loggedIn ? (
+                        <NavLink to={"/"}>
+                            <img src={Logo} alt="logo" />
+                        </NavLink>
+                    ) : (
+                        <NavLink to={`/${username}`}>
+                            <img src={Logo} alt="logo" />
+                        </NavLink>
+                    )}
                 </h1>
             </div>
             <div className="navbar__menu">
