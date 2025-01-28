@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 
 const UserPage = () => {
-  const { username } = useParams(); // Get the username from the URL
+  const { username } = useParams();
 
   return (
     <div className="user-page">

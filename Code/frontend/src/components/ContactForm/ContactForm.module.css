@@ -1,0 +1,108 @@
+.container {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 70%;
+    margin: 0 auto;
+    margin-top: 40px;
+    margin-bottom: 40px;
+    gap: 40px;
+    align-items: flex-start;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 16px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.top_btn {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.contact_form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    flex: 1;
+}
+
+.contact_form form {
+    display: flex;
+    gap: 16px;
+    margin-top: 20px;
+    padding-bottom: 20px;
+    flex-direction: column;
+}
+
+.form_control {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    position: relative;
+}
+
+.form_control input,
+.form_control textarea {
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 16px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form_control input:focus,
+.form_control textarea:focus {
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
+    outline: none;
+}
+
+.form_control textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.form_control label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #555;
+    position: absolute;
+    top: -10px;
+    left: 14px;
+    background-color: #f9f9f9;
+    padding: 0 8px;
+    transform: translateY(-50%);
+}
+
+.formbuttons {
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 16px;
+    color: #fff;
+    width: 100%;
+    background: var(--secondary-color);
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.formbuttons:hover {
+    background: var(--main-color);
+    transform: scale(1.05);
+}
+
+.contact_image {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.contact_image img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 16px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
