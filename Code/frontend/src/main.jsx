@@ -9,6 +9,7 @@ import About from "./pages/About";
 import ContactUs from "./pages/ContactUs";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
+import Userpage from "./pages/Userpage";
 import ErrorPage from "./pages/ErrorPage";
 
 import "./index.css";
@@ -39,6 +40,10 @@ const router = createBrowserRouter([
         path: "/login",
         element: <Login />,
       },
+      {
+        path: "/:username",
+        element: <Userpage />,
+      }
     ],
   },
 ]);
