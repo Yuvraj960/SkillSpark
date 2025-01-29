@@ -1,5 +1,126 @@
 // METHOD 1
 
+// const express = require("express");
+// const mongoose = require("mongoose");
+// const cors = require("cors");
+// const bcrypt = require("bcryptjs");
+// const jwt = require("jsonwebtoken");
+// const bodyParser = require("body-parser");
+
+// const app = express();
+// app.use(express.json());
+// app.use(bodyParser.json());
+// app.use(cors());
+
+// const SECRET_KEY = "secretkey";
+
+// mongoose
+//     .connect("mongodb://127.0.0.1:27017/skillspark", { useNewUrlParser: true, useUnifiedTopology: true })
+//     .then(() => console.log("MongoDB connected"))
+//     .catch((err) => console.log(err));
+
+// const userSchema = new mongoose.Schema({
+//     name: String,
+//     email: {type: String, unique: true},
+//     gitHub: String,
+//     password: String
+// });
+
+// const User = mongoose.model("User", userSchema);
+
+// app.post("/register", async (req, res) => {
+//     try {
+//         const { name, email, gitHub, password, confirmPassword } = req.body;
+
+//         if (password !== confirmPassword) {
+//             return res.status(400).json({ message: "Passwords do not match" });
+//         }
+
+//         const existingUser = await User.findOne({ email });
+//         if (existingUser) {
+//             return res.status(400).json({ message: "User already exists" });
+//         }
+
+//         const hashedPassword = await bcrypt.hash(password, 10);
+
+//         const user = new User({ name, email, gitHub, password: hashedPassword });
+//         await user.save();
+//         res.status(201).json({ message: "User registered successfully!" });
+//     } catch (error) {
+//         res.status(500).json({ message: "An error occurred!", error });
+//     }
+// });
+
+// app.post("/login", async (req, res) => {
+//     const { email, password } = req.body;
+
+//     try {
+//       const user = await User.findOne({ email });
+  
+//       if (!user) {
+//         return res.status(404).json({ message: "User not found" });
+//       }
+  
+//       const isPasswordValid = await bcrypt.compare(password, user.password);
+  
+//       if (!isPasswordValid) {
+//         return res.status(401).json({ message: "Invalid credentials" });
+//       }
+  
+//       // Generate a JWT token
+//       const token = jwt.sign({ id: user._id }, "secretkey", {
+//         expiresIn: "1h",
+//       });
+  
+//       res.status(200).json({
+//         message: "Login successful",
+//         token,
+//         username: user.username
+//       });
+//     } catch (error) {
+//       console.error(error);
+//       res.status(500).json({ message: "Internal server error" });
+//     }
+// });
+
+// // app.get('/dashboard-data', async (req, res) => {
+// //   try {
+// //     const { email } = req.body;
+// //     const data = await User.find({ email: email });
+// //     res.status(200).json(data); 
+// //   } catch (error) {
+// //     console.error('Error fetching data:', error);
+// //     res.status(500).json({ error: 'Failed to fetch data' });
+// //   }
+// // });
+// app.post("/dashboard-data", async (req, res) => {
+//     try {
+//       const { email } = req.body;
+  
+//       if (!email) {
+//         return res.status(400).json({ error: "Email is required" });
+//       }
+  
+//       const user = await User.findOne({ email });
+  
+//       if (!user) {
+//         return res.status(404).json({ error: "User not found" });
+//       }
+  
+//       res.status(200).json(user);
+//     } catch (error) {
+//       console.error("Error fetching data:", error);
+//       res.status(500).json({ error: "Failed to fetch data" });
+//     }
+//   });
+  
+
+// const PORT = 5000;
+// app.listen(PORT, () => console.log(`Server running on port ${PORT})`));
+
+
+// METHOD 1
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");

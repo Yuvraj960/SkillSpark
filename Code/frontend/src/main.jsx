@@ -10,6 +10,8 @@ import FAQ from "./pages/FAQ";
 import ContactUs from "./pages/ContactUs";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
+import SkillPage from "./pages/SkillPage";
+import List from "./pages/List";
 import Userpage from "./pages/Userpage";
 import ErrorPage from "./pages/ErrorPage";
 
@@ -48,6 +50,14 @@ const router = createBrowserRouter([
       {
         path: "/:username",
         element: <Userpage />,
+      },
+      {
+        path: "/yourskills",
+        element: <SkillPage />,
+      },
+      {
+        path: "/sparkies",
+        element: <List />,
       }
     ],
   },

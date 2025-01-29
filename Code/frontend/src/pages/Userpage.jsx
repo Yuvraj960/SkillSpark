@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react"; 
 import axios from "../api/axiosConfig"; 
 import "../styles/Userpage.css";
+import { NavLink } from "react-router-dom";
  
 const Userpage = () => { 
   const [user, setUser] = useState(null); 
@@ -53,15 +54,17 @@ const Userpage = () => {
       {/* Dashboard Cards */} 
       <div className="cards-container"> 
         <div className="card"> 
-          <h2>Book Mentor Session</h2> 
-          <p>Book a session with a mentor to improve your skills.</p> 
-          <button className="btn-primary">Book Now</button> 
+          <h2>View your Skills</h2> 
+          <p>Add more skills to have more chances to get booked!</p> 
+          <NavLink className="btn-primary dashbuttons" to={`/yourskills`}>See Skills!</NavLink>
+          {/* <button className="btn-primary">Book Now</button>  */}
         </div> 
  
         <div className="card"> 
           <h2>Sparky Profile Check</h2> 
-          <p>Check your Sparky profile for any updates and modifications.</p> 
-          <button className="btn-primary">Check Profile</button> 
+          <p>Check other Sparky's profile for your project booking!</p> 
+          <NavLink className="btn-primary dashbuttons" to={`/sparkies`}>See Sparkies!</NavLink>
+          {/* <button className="btn-primary">Check Profile</button>  */}
         </div> 
  
         <div className="card"> 
@@ -105,3 +108,59 @@ const Userpage = () => {
 }; 
  
 export default Userpage;
+
+
+// import { useEffect, useState } from "react";
+
+// const Userpage = () => {
+//   const [userData, setUserData] = useState(null);
+//   const [error, setError] = useState("");
+
+//   useEffect(() => {
+//     const fetchUserData = async () => {
+//       const email = localStorage.getItem("email");
+//       if (!email) {
+//         setError("User email not found in localStorage");
+//         return;
+//       }
+
+//       try {
+//         const response = await fetch(`http://localhost:5000/dashboard-data`, {
+//           method: "POST",
+//           headers: { "Content-Type": "application/json" },
+//           body: JSON.stringify({ email }),
+//         });
+
+//         const data = await response.json();
+
+//         if (!response.ok) {
+//           throw new Error(data.error);
+//         }
+
+//         setUserData(data[0]); // Assuming only one user will match the email
+//       } catch (err) {
+//         setError(err.message || "Failed to fetch user data");
+//       }
+//     };
+
+//     fetchUserData();
+//   }, []);
+
+//   if (error) {
+//     return <div>Error: {error}</div>;
+//   }
+
+//   if (!userData) {
+//     return <div>Loading...</div>;
+//   }
+
+//   return (
+//     <div>
+//       <h2>Welcome, {userData.name}!</h2>
+//       <p>Email: {userData.email}</p>
+//       <p>GitHub: {userData.gitHub}</p>
+//     </div>
+//   );
+// };
+
+// export default Userpage;

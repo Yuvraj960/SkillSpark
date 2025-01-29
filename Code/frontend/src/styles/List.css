@@ -1,0 +1,98 @@
+.user-list {
+    margin: auto;
+}
+
+.user-list h2 {
+    font-size: 3rem;
+    background: #000;
+    color: #fff;
+    font-weight: 600;
+    padding: 30px;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+ul {
+    list-style: none;
+    max-width: 800px;
+    margin: auto;
+    padding: 0;
+}
+
+.user-item {
+    display: flex;
+    align-items: center;
+    background-color: #fff;
+    margin: 10px 0;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease; /* Smooth transition for box-shadow and background color */
+}
+
+.user-item:hover {
+    background-color: #e6f7ff; /* Light blue background on hover */
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2); /* Larger shadow on hover */
+    transform: translateY(-5px); /* Slight upward movement on hover */
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 20px; /* Adds space between profile picture and user info */
+}
+
+.profile-pic {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    transition: transform 0.3s ease; /* Smooth transition for image scaling */
+}
+
+.user-profile:hover .profile-pic {
+    transform: scale(1.1); /* Slightly enlarge profile picture on hover */
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.user-name {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.user-skills {
+    display: flex;
+    gap: 15px;
+}
+
+.skill {
+    background-color: #0066cc;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 1rem;
+    transition: background-color 0.3s ease; /* Transition for skill background color */
+}
+
+.skill:hover {
+    background-color: #004d99; /* Darker blue background on hover */
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .user-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .user-profile {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
