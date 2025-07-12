@@ -1,0 +1,117 @@
+.intro {
+    background-color: #ffffff;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.intro h2 {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    background: #000;
+    padding: 30px;
+    color: #ffffff;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.intro p {
+    font-size: 18px;
+}
+
+.mission {
+    background-color: #ffffff;
+    padding: 50px 20px;
+    text-align: center;
+}
+
+.mission h2 {
+    font-size: 3rem;
+    color: var(--main-color);
+    font-weight: 600;
+}
+
+.mission p {
+    font-size: 1.5rem;
+    line-height: 1.6;
+    margin-top: 20px;
+}
+
+.team {
+    background: radial-gradient(shape circle, #023141, #2b809c);
+    text-align: center;
+    display:block;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+}
+
+.team h2{
+    font-size: 3rem;
+    background: #000;
+    padding: 20px;
+    font-weight: 500;
+    color: #fff;
+    text-transform: uppercase;
+    margin-bottom: 30px;
+}
+
+.team-member {   
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    padding: 10px;
+    width: 250px;
+    box-shadow: 0 4px 6px rgba(43, 1, 1, 0.1);
+    transition: transform 0.3s ease;
+    display: inline-block;
+    text-align: center;
+    margin: 20px;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    margin-top: 20px;
+    justify-content: space-between; 
+    height: 200px;
+}
+
+.team-member:hover {
+    transform: translateY(-10px); /* Adds a hover effect */
+    box-shadow: 0px 4px 15px rgba(37, 6, 211, 0.2);
+    background-color: var(--main-color);
+    transition: all 0.3s ease;
+    color: #fff;
+}
+
+.team-member h3 {
+    color: #003366;
+    font-size: 1.5rem;
+    margin-top: 10px;
+    margin-bottom: 7px;
+    font-weight: 500;
+}
+
+.contact {
+    background-color: #ffffff;
+    padding: 50px 20px;
+    text-align: center;
+}
+
+.contact h2 {
+    font-size: 3rem;
+    color: var(--main-color);
+    font-weight: 600;
+}
+
+.contact p {
+    font-size: 18px;
+    margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+    .team-member {
+        width: 100%;
+        margin: 10px 0;
+    }
+    
+    nav ul li {
+        display: block;
+        margin: 10px 0;
+    }
+}

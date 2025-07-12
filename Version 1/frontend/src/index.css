@@ -1,0 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import "tailwindcss";
+
+:root {
+    --main-color: #219B9D;
+    --secondary-color: #09122C;
+    --tertiary-color: #80C4E9;
+    --color-white: #fff;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 600;
+}
+
+
+/* ===============================================NAVBAR======================================================== */
+
+.navbar__container {
+    display: flex;
+    justify-content: space-between;
+    position: sticky;
+    padding: 15px;
+}
+
+.navbar__logo {
+    padding-left: 10px;
+}
+
+.navbar__logo img {
+    width: 60px;
+    height: auto;
+}
+
+.navbar__menu {
+    width: 50%;
+    padding: 20px;
+}
+
+.navbar__menu ul {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2rem;
+    font-size: 2rem;
+}
+
+.navbar__menu ul li a:hover {
+    color: var(--secondary-color);
+    transition: 0.2s ease;
+}
+
+.navbar__menu ul li a.active {
+    color: var(--main-color);
+}
+
+
+/* ===============================================FOOTER======================================================== */
+
+.footer__container {
+    background: var(--secondary-color);
+    color: var(--color-white);
+}
+
+.footer__social {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    padding: 2rem;
+    font-size: 2rem;
+}
+
+.footer__social svg:hover {
+    color: var(--main-color);
+    transition: 0.2s ease;
+}
+
+.footer__items {
+    margin: auto;
+    display: flex;
+    padding: 2rem;
+}
+
+.footer__card {
+    width: 25%;
+    margin: 2rem;
+}
+
+.footer__card a {
+    color: white;
+}
+
+.footer__copyright {
+    background: var(--main-color);
+    padding: 1.5rem;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 300;
+}
+
+.footer__copyright a:hover {
+    color: var(--color-white);
+    transition: 0.2s ease;
+}
+
+
+/* ======================================Error page========================================== */
+
+.error-page {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    text-align: center;
+}
+
+.error-page h1 {
+    font-size: 10rem;
+    font-weight: 700;
+    color: var(--main-color);
+}
+
+.error-page h2 {
+    font-size: 2rem;
+    font-weight: 400;
+    color: var(--main-color);
+    margin-bottom: 2rem;
+}
+
+.error-page .btn {
+    padding: 1rem 2rem;
+    background: var(--main-color);
+    color: var(--color-white);
+    font-size: 1.5rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.error-page .btn:hover {
+    background: var(--secondary-color);
+    transition: 0.2s ease;
+}
