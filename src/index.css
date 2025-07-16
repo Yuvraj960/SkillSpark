@@ -1,0 +1,109 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 260 78% 75%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 260 30% 54%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 260 30% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 260 30% 96%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 260 78% 75%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 260 78% 75%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 260 78% 75%;
+  }
+
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 210 40% 98%;
+
+    --card: 240 10% 6%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 240 10% 4%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 260 70% 70%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 260 30% 40%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 240 8% 12%;
+    --muted-foreground: 240 5% 65%;
+
+    --accent: 240 8% 12%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 240 8% 18%;
+    --input: 240 8% 18%;
+    --ring: 260 70% 60%;
+    
+    --sidebar-background: 240 10% 6%;
+    --sidebar-foreground: 240 8% 90%;
+    --sidebar-primary: 260 70% 70%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 8% 15%;
+    --sidebar-accent-foreground: 240 8% 90%;
+    --sidebar-border: 240 8% 20%;
+    --sidebar-ring: 260 70% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+.sparkies-gradient {
+  @apply bg-gradient-to-r from-skillspark-purple to-skillspark-darkpurple;
+}
+
+.clients-gradient {
+  @apply bg-gradient-to-r from-skillspark-softblue to-skillspark-lightpurple;
+}
+
+/* Transitions for theme switching */
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease;
+}
