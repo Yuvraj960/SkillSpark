@@ -1,108 +1,71 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
+import { userAPI } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface CreditsContextType {
   credits: number;
-  addCredits: (amount: number) => void;
-  spendCredits: (amount: number) => boolean;
-  donateCredits: (amount: number, projectTitle: string) => boolean;
-  refreshCredits: () => void;
+  addCredits: (amount: number) => Promise<void>;
+  updateCredits: (newAmount: number) => void;
+  refreshCredits: () => Promise<void>;
 }
 
 const CreditsContext = createContext<CreditsContextType>({
   credits: 0,
-  addCredits: () => {},
-  spendCredits: () => false,
-  donateCredits: () => false,
-  refreshCredits: () => {},
+  addCredits: async () => {},
+  updateCredits: () => {},
+  refreshCredits: async () => {},
 });
 
 export const useCredits = () => useContext(CreditsContext);
 
 export const CreditsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [credits, setCredits] = useState(100); // Starting credits
-  const { user } = useAuth();
+  const [credits, setCredits] = useState(0);
+  const { user, updateUser } = useAuth();
   const { toast } = useToast();
 
-  // Load credits from localStorage when user changes
+  // Sync credits from user object whenever user changes
   useEffect(() => {
     if (user) {
-      const savedCredits = localStorage.getItem(`credits-${user.id}`);
-      if (savedCredits) {
-        setCredits(parseInt(savedCredits));
-      } else {
-        // Set default credits for new users
-        const defaultCredits = user.type === 'client' ? 100 : 50;
-        setCredits(defaultCredits);
-        localStorage.setItem(`credits-${user.id}`, defaultCredits.toString());
-      }
+      setCredits(user.credits || 0);
+    } else {
+      setCredits(0);
     }
   }, [user]);
 
-  // Save credits to localStorage whenever credits change
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(`credits-${user.id}`, credits.toString());
-    }
-  }, [credits, user]);
-
-  const addCredits = (amount: number) => {
-    setCredits(prev => prev + amount);
-    toast({
-      title: "Credits Added",
-      description: `You received ${amount} credits!`,
-    });
-  };
-
-  const spendCredits = (amount: number): boolean => {
-    if (credits >= amount) {
-      setCredits(prev => prev - amount);
-      return true;
-    }
-    toast({
-      title: "Insufficient Credits",
-      description: `You need ${amount} credits but only have ${credits}.`,
-      variant: "destructive",
-    });
-    return false;
-  };
-
-  const donateCredits = (amount: number, projectTitle: string): boolean => {
-    if (credits >= amount) {
-      setCredits(prev => prev - amount);
+  const addCredits = async (amount: number) => {
+    try {
+      const res = await userAPI.addCredits(amount);
+      const newCredits = res.data.credits;
+      setCredits(newCredits);
+      updateUser({ credits: newCredits });
       toast({
-        title: "Donation Successful",
-        description: `You donated ${amount} credits to "${projectTitle}"!`,
+        title: 'Credits Added!',
+        description: `${amount} credits have been added to your account.`,
       });
-      return true;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to add credits.';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
     }
-    toast({
-      title: "Insufficient Credits",
-      description: `You need ${amount} credits but only have ${credits}.`,
-      variant: "destructive",
-    });
-    return false;
   };
 
-  const refreshCredits = () => {
-    if (user) {
-      const savedCredits = localStorage.getItem(`credits-${user.id}`);
-      if (savedCredits) {
-        setCredits(parseInt(savedCredits));
-      }
+  const updateCredits = (newAmount: number) => {
+    setCredits(newAmount);
+    updateUser({ credits: newAmount });
+  };
+
+  const refreshCredits = async () => {
+    try {
+      const res = await userAPI.getUserProfile(user!.id);
+      const freshCredits = res.data.user.credits;
+      setCredits(freshCredits);
+    } catch {
+      // silent fail
     }
   };
 
   return (
-    <CreditsContext.Provider value={{
-      credits,
-      addCredits,
-      spendCredits,
-      donateCredits,
-      refreshCredits,
-    }}>
+    <CreditsContext.Provider value={{ credits, addCredits, updateCredits, refreshCredits }}>
       {children}
     </CreditsContext.Provider>
   );
