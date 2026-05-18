@@ -1,194 +1,287 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import Navbar from "@/components/Navbar";
 import { useAuth } from "@/context/AuthContext";
+import { userAPI, aiAPI } from "@/lib/api";
+import Navbar from "@/components/Navbar";
+import {
+  Zap, ArrowLeft, Sparkles, BookOpen, Clock, DollarSign,
+  Globe, Users, Loader2, Lightbulb,
+} from "lucide-react";
+
+const schema = z.object({
+  name: z.string().min(3, "Skill name must be at least 3 characters"),
+  description: z.string().min(20, "Description must be at least 20 characters"),
+  category: z.string().min(1, "Please select a category"),
+  sessionLength: z.coerce.number().min(15, "Minimum 15 minutes").max(240, "Maximum 4 hours"),
+  creditsPerSession: z.coerce.number().min(5, "Minimum 5 credits").max(200, "Maximum 200 credits"),
+  isRemote: z.boolean().default(true),
+  isGroup: z.boolean().default(false),
+});
+
+type FormData = z.infer<typeof schema>;
 
 const categories = [
-  { value: "programming", label: "Programming & Development" },
-  { value: "design", label: "Design" },
-  { value: "marketing", label: "Marketing" },
-  { value: "business", label: "Business" },
-  { value: "personal", label: "Personal Development" },
-  { value: "music", label: "Music" },
-  { value: "language", label: "Languages" },
-  { value: "other", label: "Other" },
+  { value: "programming", label: "💻 Programming & Tech" },
+  { value: "design", label: "🎨 Design & Creative" },
+  { value: "marketing", label: "📈 Marketing & Growth" },
+  { value: "business", label: "💼 Business & Strategy" },
+  { value: "personal", label: "🧠 Personal Development" },
+  { value: "music", label: "🎵 Music & Arts" },
+  { value: "language", label: "🌍 Languages" },
+  { value: "other", label: "⚡ Other" },
 ];
 
 const AddSkill: React.FC = () => {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
-  const [sessionLength, setSessionLength] = useState("");
-  const [creditsRequired, setCreditsRequired] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const { user, updateUser } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<Array<{ name: string; reason: string; creditsPerSession: number; difficulty: string }>>([]);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
 
-  if (!user || user.type !== "sparky") {
-    navigate("/login");
-    return null;
-  }
+  const form = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      name: "",
+      description: "",
+      category: "",
+      sessionLength: 60,
+      creditsPerSession: 20,
+      isRemote: true,
+      isGroup: false,
+    },
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    // Basic validation
-    if (!title || !description || !category || !sessionLength || !creditsRequired) {
-      toast({ 
-        title: "Error", 
-        description: "All fields are required", 
-        variant: "destructive" 
-      });
-      setIsSubmitting(false);
-      return;
+  const handleGetAISuggestions = async () => {
+    setIsLoadingAI(true);
+    try {
+      const currentSkills = user?.skills?.map((s) => s.name) || [];
+      const res = await aiAPI.getSkillSuggestions({ currentSkills, goals: "Help clients learn effectively" });
+      setAiSuggestions(res.data.suggestions || []);
+    } catch {
+      toast({ title: "AI Not Available", description: "Please configure your Gemini API key to use AI suggestions.", variant: "destructive" });
+    } finally {
+      setIsLoadingAI(false);
     }
+  };
 
-    // Mock submission
-    setTimeout(() => {
-      toast({ 
-        title: "Success", 
-        description: "Your skill has been added successfully!" 
-      });
-      setIsSubmitting(false);
+  const applySuggestion = (suggestion: typeof aiSuggestions[0]) => {
+    form.setValue("name", suggestion.name);
+    form.setValue("creditsPerSession", suggestion.creditsPerSession);
+    toast({ title: "Suggestion Applied!", description: `${suggestion.name} has been filled in.` });
+  };
+
+  const onSubmit = async (data: FormData) => {
+    setIsSubmitting(true);
+    try {
+      const res = await userAPI.addSkill(data);
+      // Update user in context with new skills
+      updateUser({ skills: res.data.skills });
+      toast({ title: "🎉 Skill Added!", description: `"${data.name}" is now live on your profile.` });
       navigate("/sparkies/profile");
-    }, 1000);
+    } catch (error: unknown) {
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to add skill.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
-      <main className="flex-1 py-10">
-        <div className="container max-w-2xl">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">Add a New Skill</CardTitle>
-              <CardDescription>
-                Share your expertise with others and earn credits by teaching your skills
-              </CardDescription>
+      <main className="flex-1 py-8">
+        <div className="container max-w-2xl px-4 md:px-6">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-8">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-xl h-9 w-9">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-extrabold">Add New Skill</h1>
+              <p className="text-muted-foreground mt-0.5">List a skill to start receiving bookings</p>
+            </div>
+          </div>
+
+          {/* AI Suggestions */}
+          <Card className="mb-6 border-primary/20 bg-primary/5">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  <CardTitle className="text-base">AI Skill Suggestions</CardTitle>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGetAISuggestions}
+                  disabled={isLoadingAI}
+                  className="h-8 gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  {isLoadingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lightbulb className="w-3.5 h-3.5" />}
+                  {isLoadingAI ? "Generating..." : "Get AI Suggestions"}
+                </Button>
+              </div>
+              <CardDescription>Let AI suggest skills based on your current profile</CardDescription>
             </CardHeader>
-            <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
+            {aiSuggestions.length > 0 && (
+              <CardContent className="pt-0">
                 <div className="space-y-2">
-                  <Label htmlFor="title">Skill Title</Label>
-                  <Input
-                    id="title"
-                    placeholder="e.g., Advanced JavaScript, UI/UX Design, Digital Marketing"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Describe what you can teach and your experience in this field..."
-                    rows={4}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Select value={category} onValueChange={setCategory}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.value} value={category.value}>
-                            {category.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="session-length">Session Length (minutes)</Label>
-                    <Select value={sessionLength} onValueChange={setSessionLength}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select duration" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="30">30 minutes</SelectItem>
-                        <SelectItem value="45">45 minutes</SelectItem>
-                        <SelectItem value="60">60 minutes</SelectItem>
-                        <SelectItem value="90">90 minutes</SelectItem>
-                        <SelectItem value="120">120 minutes</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="credits">Credits Required</Label>
-                  <Input
-                    id="credits"
-                    type="number"
-                    placeholder="How many credits to charge for this skill session"
-                    value={creditsRequired}
-                    onChange={(e) => setCreditsRequired(e.target.value)}
-                    min="1"
-                  />
-                  <p className="text-sm text-gray-500">
-                    Recommended: 5-20 credits for a standard session
-                  </p>
-                </div>
-                
-                <div className="space-y-2 border-t pt-4">
-                  <Label>Additional Information</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center border rounded-md p-3">
-                      <input
-                        type="checkbox"
-                        id="remote"
-                        className="mr-2"
-                      />
-                      <Label htmlFor="remote" className="cursor-pointer">Remote sessions available</Label>
+                  {aiSuggestions.map((s, i) => (
+                    <div key={i} className="flex items-start justify-between gap-3 p-3 bg-background rounded-xl border border-border/50">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-semibold text-sm">{s.name}</p>
+                          <Badge variant="outline" className="text-xs">{s.difficulty}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{s.reason}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="text-xs font-bold text-primary">{s.creditsPerSession}cr/session</span>
+                        <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => applySuggestion(s)}>
+                          Use this →
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center border rounded-md p-3">
-                      <input
-                        type="checkbox"
-                        id="group"
-                        className="mr-2"
-                      />
-                      <Label htmlFor="group" className="cursor-pointer">Group sessions available</Label>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </CardContent>
-              
-              <CardFooter className="flex justify-between">
-                <Button 
-                  variant="outline" 
-                  onClick={() => navigate('/sparkies/profile')}
-                  type="button"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="bg-skillspark-purple hover:bg-skillspark-darkpurple"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Adding Skill..." : "Add Skill"}
-                </Button>
-              </CardFooter>
-            </form>
+            )}
+          </Card>
+
+          {/* Form */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-primary" /> Skill Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+                  <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Skill Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Advanced React Development" className="h-11 rounded-xl" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description *</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Describe what clients will learn, your teaching approach, and what makes your sessions valuable..."
+                          className="min-h-[120px] rounded-xl resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="category" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-11 rounded-xl">
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="sessionLength" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" /> Session Length (min) *
+                        </FormLabel>
+                        <FormControl>
+                          <Input type="number" min={15} max={240} className="h-11 rounded-xl" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    <FormField control={form.control} name="creditsPerSession" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-1.5">
+                          <DollarSign className="w-3.5 h-3.5" /> Credits per Session *
+                        </FormLabel>
+                        <FormControl>
+                          <Input type="number" min={5} max={200} className="h-11 rounded-xl" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <div className="flex gap-6 pt-2">
+                    <FormField control={form.control} name="isRemote" render={({ field }) => (
+                      <FormItem className="flex items-center gap-3 space-y-0">
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                        <FormLabel className="flex items-center gap-1.5 cursor-pointer">
+                          <Globe className="w-4 h-4 text-primary" /> Remote sessions
+                        </FormLabel>
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="isGroup" render={({ field }) => (
+                      <FormItem className="flex items-center gap-3 space-y-0">
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                        <FormLabel className="flex items-center gap-1.5 cursor-pointer">
+                          <Users className="w-4 h-4 text-primary" /> Group sessions
+                        </FormLabel>
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <Button type="button" variant="outline" onClick={() => navigate(-1)} className="flex-1 rounded-xl h-11">
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting} className="flex-1 rounded-xl h-11 animated-gradient text-white">
+                      {isSubmitting ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Adding...
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4" /> Add Skill
+                        </div>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
           </Card>
         </div>
       </main>
