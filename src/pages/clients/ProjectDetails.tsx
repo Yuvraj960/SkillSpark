@@ -1,528 +1,420 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Project, Bid } from "@/types";
-import { Calendar, Clock, DollarSign, Check } from "lucide-react";
-import { format, parseISO } from "date-fns";
-import { useToast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/context/AuthContext";
+import { projectAPI } from "@/lib/api";
+import type { Project } from "@/types";
 import Navbar from "@/components/Navbar";
-
-// Mock projects data - same as in OpenProjects.tsx
-const mockProjects = [
-  {
-    id: "1",
-    clientId: "client1",
-    clientName: "Tech Innovators",
-    title: "E-commerce Platform Development",
-    description: "We need an e-commerce platform with product listings, shopping cart, and payment integration.",
-    requirements: ["React", "Node.js", "Payment Gateway Integration", "Responsive Design"],
-    budget: 250,
-    deadline: "2025-06-25",
-    status: "open" as const,
-    createdAt: "2025-05-15T10:00:00Z",
-    bids: [
-      {
-        id: "bid1",
-        projectId: "1",
-        sparkyId: "sparky1",
-        sparkyName: "John Developer",
-        sparkyAvatar: "https://github.com/shadcn.png",
-        sparkyRating: 4.9,
-        amount: 220,
-        proposal: "I can build this platform using React and Node.js with all the required features.",
-        estimatedDuration: "3 weeks",
-        status: "pending",
-        createdAt: "2025-05-16T12:00:00Z"
-      }
-    ]
-  },
-  {
-    id: "2",
-    clientId: "client2",
-    clientName: "Digital Marketing Agency",
-    title: "Marketing Dashboard UI",
-    description: "A dashboard to visualize marketing KPIs and campaign performance.",
-    requirements: ["Figma Design", "React", "Data Visualization", "Responsive UI"],
-    budget: 180,
-    deadline: "2025-06-10",
-    status: "open" as const,
-    createdAt: "2025-05-14T15:00:00Z",
-    bids: []
-  },
-  {
-    id: "3",
-    clientId: "client3",
-    clientName: "EdTech Startup",
-    title: "Online Learning Platform Enhancement",
-    description: "Add new features to our existing learning platform including video lessons and quizzes.",
-    requirements: ["React", "TypeScript", "Video Integration", "Quiz Builder"],
-    budget: 320,
-    deadline: "2025-07-05",
-    status: "open" as const,
-    createdAt: "2025-05-12T09:30:00Z",
-    bids: [
-      {
-        id: "bid2",
-        projectId: "3",
-        sparkyId: "sparky2",
-        sparkyName: "Jane Engineer",
-        sparkyAvatar: "https://github.com/shadcn.png",
-        sparkyRating: 4.8,
-        amount: 310,
-        proposal: "I specialize in EdTech platforms and can enhance your existing system with all requested features.",
-        estimatedDuration: "4 weeks",
-        status: "pending",
-        createdAt: "2025-05-13T14:20:00Z"
-      },
-      {
-        id: "bid3",
-        projectId: "3",
-        sparkyId: "sparky3",
-        sparkyName: "Alex Developer",
-        sparkyAvatar: "https://github.com/shadcn.png",
-        sparkyRating: 4.7,
-        amount: 290,
-        proposal: "I have extensive experience with video integration and quiz systems. Can deliver in 3 weeks.",
-        estimatedDuration: "3 weeks",
-        status: "pending",
-        createdAt: "2025-05-14T10:15:00Z"
-      }
-    ]
-  }
-];
+import {
+  ArrowLeft, DollarSign, Calendar, Clock, Users, Star,
+  CheckCircle, XCircle, Loader2, Send, Briefcase, AlertTriangle,
+} from "lucide-react";
 
 const ProjectDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { user, userType } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
-  
+  const navigate = useNavigate();
+
   const [project, setProject] = useState<Project | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [bidAmount, setBidAmount] = useState<number>(0);
-  const [bidProposal, setBidProposal] = useState<string>("");
-  const [estimatedDuration, setEstimatedDuration] = useState<string>("");
-  const [submittingBid, setSubmittingBid] = useState(false);
-  const [showBidForm, setShowBidForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmittingBid, setIsSubmittingBid] = useState(false);
+  const [isAcceptingBid, setIsAcceptingBid] = useState<string | null>(null);
+
+  // Bid form state
+  const [bidAmount, setBidAmount] = useState("");
+  const [bidProposal, setBidProposal] = useState("");
+  const [bidDuration, setBidDuration] = useState("");
 
   useEffect(() => {
-    if (!id) return;
-
-    const loadProject = () => {
-      setLoading(true);
-      // In a real app, this would be an API call
-      setTimeout(() => {
-        const foundProject = mockProjects.find(p => p.id === id);
-        if (foundProject) {
-          setProject(foundProject as Project);
-          // Pre-fill bid amount with a reasonable default
-          setBidAmount(foundProject.budget - 10);
-        }
-        setLoading(false);
-      }, 500);
-    };
-
-    loadProject();
+    fetchProject();
   }, [id]);
 
-  const handlePlaceBid = () => {
-    if (!user || !project) return;
+  const fetchProject = async () => {
+    if (!id) return;
+    setIsLoading(true);
+    try {
+      const res = await projectAPI.getProject(id);
+      setProject(res.data.project);
+    } catch {
+      toast({ title: "Error", description: "Project not found.", variant: "destructive" });
+      navigate("/clients/open-projects");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    setSubmittingBid(true);
-    
-    // Validate inputs
-    if (!bidAmount || !bidProposal || !estimatedDuration) {
-      toast({
-        title: "Missing information",
-        description: "Please fill out all fields in your bid.",
-        variant: "destructive",
-      });
-      setSubmittingBid(false);
+  const handlePlaceBid = async () => {
+    if (!bidAmount || !bidProposal || !bidDuration) {
+      toast({ title: "Missing Fields", description: "Please fill all bid fields.", variant: "destructive" });
+      return;
+    }
+    if (bidProposal.length < 20) {
+      toast({ title: "Proposal Too Short", description: "Write at least 20 characters.", variant: "destructive" });
       return;
     }
 
-    // In a real app, this would be an API call
-    setTimeout(() => {
-      // Create a new bid
-      const newBid: Bid = {
-        id: `bid-${Date.now()}`,
-        projectId: project.id,
-        sparkyId: user.id,
-        sparkyName: user.name,
-        sparkyAvatar: "https://github.com/shadcn.png", // Use actual avatar in real app
-        sparkyRating: 5.0, // Mock rating
-        amount: bidAmount,
+    setIsSubmittingBid(true);
+    try {
+      const res = await projectAPI.placeBid(id!, {
+        amount: parseInt(bidAmount),
         proposal: bidProposal,
-        estimatedDuration: estimatedDuration,
-        status: "pending",
-        createdAt: new Date().toISOString()
-      };
-
-      // Update the project with the new bid
-      const updatedProject = {
-        ...project,
-        bids: [...project.bids, newBid]
-      };
-
-      setProject(updatedProject as Project);
-      setShowBidForm(false);
-      
-      toast({
-        title: "Bid placed successfully!",
-        description: "The client will review your proposal.",
+        estimatedDuration: bidDuration,
       });
-      
-      setSubmittingBid(false);
-    }, 1000);
+      setProject(res.data.project);
+      setBidAmount(""); setBidProposal(""); setBidDuration("");
+      toast({ title: "Bid Submitted! 🎉", description: "The client will review your proposal." });
+    } catch (error: unknown) {
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to submit bid.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setIsSubmittingBid(false);
+    }
   };
 
-  const handleAcceptBid = (bidId: string) => {
-    if (!project) return;
-    
-    // In a real app, this would be an API call
-    setTimeout(() => {
-      // Update the project status and the accepted bid
-      const updatedBids = project.bids.map(bid => ({
-        ...bid,
-        status: bid.id === bidId ? "accepted" : "rejected"
-      }));
-      
-      const updatedProject = {
-        ...project,
-        status: "assigned" as const,
-        assignedSparkyId: project.bids.find(b => b.id === bidId)?.sparkyId,
-        bids: updatedBids
-      };
-      
-      setProject(updatedProject as Project);
-      
-      toast({
-        title: "Bid accepted!",
-        description: "The Sparky has been notified about your decision.",
-      });
-    }, 800);
+  const handleAcceptBid = async (bidId: string) => {
+    setIsAcceptingBid(bidId);
+    try {
+      const res = await projectAPI.acceptBid(id!, bidId);
+      setProject(res.data.project);
+      toast({ title: "Bid Accepted! ✅", description: "The Sparky has been assigned to your project." });
+    } catch (error: unknown) {
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to accept bid.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setIsAcceptingBid(null);
+    }
   };
 
-  const userHasBidOnProject = () => {
-    if (!user || !project) return false;
-    return project.bids.some(bid => bid.sparkyId === user.id);
+  const isOwner = project?.clientId === user?.id || project?.clientId === user?._id;
+  const isSparky = user?.type === "sparky";
+  const userBid = project?.bids.find(
+    (b) => b.sparkyId === user?.id || b.sparkyId === user?._id
+  );
+  const hasActiveBid = !!userBid;
+
+  const getStatusColor = (status: string) => {
+    const map: Record<string, string> = {
+      open: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+      assigned: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+      "in-progress": "bg-amber-500/10 text-amber-600 border-amber-500/20",
+      completed: "bg-gray-500/10 text-gray-600 border-gray-500/20",
+    };
+    return map[status] || "";
   };
 
-  if (loading || !project) {
+  if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="flex min-h-screen flex-col">
         <Navbar />
-        <div className="container mx-auto py-10 px-4 flex-1">
-          <div className="text-center py-10">Loading project details...</div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading project...</p>
+          </div>
         </div>
       </div>
     );
   }
 
+  if (!project) return null;
+
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
-      <div className="container mx-auto py-10 px-4 flex-1">
-        <Button
-          variant="outline"
-          onClick={() => navigate("/clients/open-projects")}
-          className="mb-6"
-        >
-          ← Back to Projects
-        </Button>
-        
-        <div className="grid md:grid-cols-[2fr_1fr] gap-6">
-          <div className="space-y-6">
-            {/* Project Details Card */}
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-2xl">{project.title}</CardTitle>
-                    <CardDescription className="mt-1">Posted by {project.clientName}</CardDescription>
+      <main className="flex-1 py-8">
+        <div className="container px-4 md:px-6 max-w-4xl">
+          {/* Back */}
+          <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 mb-6 -ml-2 rounded-xl">
+            <ArrowLeft className="w-4 h-4" /> Back to Projects
+          </Button>
+
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* ─── Main content ─────────────────────────────────────── */}
+            <div className="lg:col-span-2 space-y-5">
+              {/* Project card */}
+              <Card className="border-border/50">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between gap-4 mb-4">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h1 className="text-2xl font-extrabold">{project.title}</h1>
+                        <Badge className={`text-xs ${getStatusColor(project.status)}`}>
+                          {project.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Posted by {project.clientName}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-3xl font-extrabold text-primary">{project.budget}</p>
+                      <p className="text-xs text-muted-foreground">credits budget</p>
+                    </div>
                   </div>
-                  <Badge className={project.status === 'open' ? 'bg-green-500' : 'bg-yellow-500'}>
-                    {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="font-medium mb-2">Description</h3>
-                  <p className="text-gray-600 dark:text-gray-300">{project.description}</p>
-                </div>
-                
-                <div>
-                  <h3 className="font-medium mb-2">Requirements</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {project.requirements.map((req, index) => (
-                      <Badge key={index} variant="outline">{req}</Badge>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-                  <div className="flex items-center">
-                    <DollarSign className="h-4 w-4 mr-2 text-skillspark-purple" />
-                    <span>Budget: {project.budget} credits</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Calendar className="h-4 w-4 mr-2 text-skillspark-purple" />
-                    <span>Deadline: {format(parseISO(project.deadline), 'MMM d, yyyy')}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-2 text-skillspark-purple" />
-                    <span>Posted: {format(parseISO(project.createdAt), 'MMM d, yyyy')}</span>
-                  </div>
-                </div>
-              </CardContent>
-              
-              {userType === 'sparky' && project.status === 'open' && (
-                <CardFooter className="border-t bg-gray-50 dark:bg-gray-900 flex justify-between">
-                  {userHasBidOnProject() ? (
-                    <p className="text-skillspark-purple py-2">You've already placed a bid on this project</p>
-                  ) : (
-                    <>
-                      {showBidForm ? (
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setShowBidForm(false)}
-                        >
-                          Cancel Bid
-                        </Button>
-                      ) : (
-                        <Button 
-                          onClick={() => setShowBidForm(true)}
-                          className="bg-skillspark-purple hover:bg-skillspark-darkpurple"
-                        >
-                          Place a Bid
-                        </Button>
-                      )}
-                    </>
+
+                  <p className="text-muted-foreground leading-relaxed mb-5">{project.description}</p>
+
+                  {project.requirements.length > 0 && (
+                    <div className="mb-5">
+                      <p className="text-sm font-semibold mb-2">Required Skills</p>
+                      <div className="flex flex-wrap gap-2">
+                        {project.requirements.map((req) => (
+                          <Badge key={req} variant="outline" className="border-primary/20 bg-primary/5">{req}</Badge>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </CardFooter>
-              )}
-            </Card>
-            
-            {/* Bid Form */}
-            {userType === 'sparky' && showBidForm && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Place Your Bid</CardTitle>
-                  <CardDescription>Tell the client why you're the perfect match for this project</CardDescription>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label htmlFor="bid-amount" className="text-sm font-medium">
-                        Your Bid (Credits)
-                      </label>
-                      <Input
-                        id="bid-amount"
-                        type="number"
-                        value={bidAmount}
-                        onChange={e => setBidAmount(Number(e.target.value))}
-                        min={1}
-                        max={project.budget * 1.5}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label htmlFor="estimated-duration" className="text-sm font-medium">
-                        Estimated Duration
-                      </label>
-                      <Input
-                        id="estimated-duration"
-                        placeholder="e.g., 2 weeks"
-                        value={estimatedDuration}
-                        onChange={e => setEstimatedDuration(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label htmlFor="proposal" className="text-sm font-medium">
-                      Your Proposal
-                    </label>
-                    <Textarea
-                      id="proposal"
-                      placeholder="Explain why you're the best fit for this project and how you plan to deliver it..."
-                      value={bidProposal}
-                      onChange={e => setBidProposal(e.target.value)}
-                      rows={5}
-                    />
+
+                  <div className="flex flex-wrap gap-5 text-sm text-muted-foreground pt-4 border-t">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4" />
+                      Deadline: {new Date(project.deadline).toLocaleDateString()}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Users className="w-4 h-4" />
+                      {project.bids.length} bid{project.bids.length !== 1 ? "s" : ""}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-4 h-4" />
+                      Posted {new Date(project.createdAt || "").toLocaleDateString()}
+                    </span>
                   </div>
                 </CardContent>
-                
-                <CardFooter className="border-t bg-gray-50 dark:bg-gray-900">
-                  <Button
-                    onClick={handlePlaceBid}
-                    className="bg-skillspark-purple hover:bg-skillspark-darkpurple ml-auto"
-                    disabled={submittingBid}
-                  >
-                    {submittingBid ? "Submitting..." : "Submit Bid"}
-                  </Button>
-                </CardFooter>
               </Card>
-            )}
-            
-            {/* Bids List - Only visible to project client */}
-            {(userType === 'client' && user?.id === project.clientId) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Bids ({project.bids.length})</CardTitle>
-                  <CardDescription>Review and select the best Sparky for your project</CardDescription>
+
+              {/* Bids list — visible to project owner OR to sparkies (to see their own bid) */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    {isOwner ? `All Bids (${project.bids.length})` : isSparky && hasActiveBid ? "Your Bid" : "Bids"}
+                  </CardTitle>
                 </CardHeader>
-                
-                <CardContent>
-                  {project.bids.length > 0 ? (
-                    <div className="space-y-4">
-                      {project.bids.map((bid) => (
-                        <div key={bid.id} className="border rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Avatar>
-                                <AvatarImage src={bid.sparkyAvatar} alt={bid.sparkyName} />
-                                <AvatarFallback>{bid.sparkyName[0]}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <h4 className="font-medium">{bid.sparkyName}</h4>
-                                <div className="flex items-center text-sm">
-                                  <span className="text-amber-500 mr-1">★</span>
-                                  <span>{bid.sparkyRating}</span>
+                <CardContent className="pt-0">
+                  {/* Show all bids to owner, only own bid to sparky */}
+                  {(() => {
+                    const visibleBids = isOwner
+                      ? project.bids
+                      : isSparky
+                        ? project.bids.filter((b) => b.sparkyId === user?.id || b.sparkyId === user?._id)
+                        : [];
+
+                    if (visibleBids.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <Briefcase className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                          <p className="text-muted-foreground text-sm">
+                            {isSparky ? "You haven't placed a bid yet." : "No bids received yet."}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        {visibleBids.map((bid) => {
+                          const bidId = bid._id || bid.id || "";
+                          return (
+                            <div key={bidId} className={`p-4 rounded-xl border transition-all ${bid.status === "accepted" ? "border-emerald-500/30 bg-emerald-500/5" : bid.status === "rejected" ? "border-muted opacity-60" : "border-border/50 hover:border-primary/20"}`}>
+                              <div className="flex items-start justify-between gap-3 mb-3">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-9 w-9">
+                                    <AvatarImage src={bid.sparkyAvatar} />
+                                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                                      {bid.sparkyName.charAt(0)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-semibold text-sm">{bid.sparkyName}</p>
+                                    {bid.sparkyRating && (
+                                      <div className="flex items-center gap-1 mt-0.5">
+                                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                        <span className="text-xs text-muted-foreground">{bid.sparkyRating.toFixed(1)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-bold text-primary">{bid.amount} cr</p>
+                                  <p className="text-xs text-muted-foreground">{bid.estimatedDuration}</p>
                                 </div>
                               </div>
+
+                              <p className="text-sm text-muted-foreground leading-relaxed mb-3">{bid.proposal}</p>
+
+                              <div className="flex items-center justify-between">
+                                <Badge
+                                  className={`text-xs ${bid.status === "accepted" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : bid.status === "rejected" ? "bg-red-500/10 text-red-600 border-red-500/20" : "bg-muted text-muted-foreground border-border"}`}
+                                >
+                                  {bid.status}
+                                </Badge>
+
+                                {isOwner && bid.status === "pending" && project.status === "open" && (
+                                  <Button
+                                    size="sm"
+                                    className="h-7 gap-1.5 text-xs rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white"
+                                    onClick={() => handleAcceptBid(bidId)}
+                                    disabled={!!isAcceptingBid}
+                                  >
+                                    {isAcceptingBid === bidId ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="w-3 h-3" />
+                                    )}
+                                    Accept Bid
+                                  </Button>
+                                )}
+                                {bid.status === "accepted" && (
+                                  <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                                    <CheckCircle className="w-3.5 h-3.5" /> Accepted
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            
-                            <div className="text-right">
-                              <p className="font-bold text-lg">{bid.amount} credits</p>
-                              <p className="text-sm text-gray-500">{bid.estimatedDuration}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-3 text-gray-600 dark:text-gray-300">
-                            <p>{bid.proposal}</p>
-                          </div>
-                          
-                          <div className="mt-4 flex justify-end gap-2">
-                            {project.status === 'open' ? (
-                              <Button
-                                onClick={() => handleAcceptBid(bid.id)}
-                                className="bg-skillspark-purple hover:bg-skillspark-darkpurple gap-1"
-                              >
-                                <Check className="h-4 w-4" /> Accept Bid
-                              </Button>
-                            ) : (
-                              <Badge className={bid.status === 'accepted' ? 'bg-green-500' : 'bg-gray-400'}>
-                                {bid.status === 'accepted' ? 'Accepted' : 'Rejected'}
-                              </Badge>
-                            )}
-                          </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ─── Sidebar ──────────────────────────────────────────── */}
+            <div className="space-y-5">
+              {/* Place bid form — Sparkies only, project open, no existing bid */}
+              {isSparky && project.status === "open" && !hasActiveBid && (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Send className="w-4 h-4 text-primary" /> Submit a Bid
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-3">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Your Bid (credits) *</label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          placeholder={`Max: ${project.budget}`}
+                          value={bidAmount}
+                          onChange={(e) => setBidAmount(e.target.value)}
+                          max={project.budget}
+                          className="pl-9 h-10 rounded-xl text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Estimated Duration *</label>
+                      <Input
+                        placeholder="e.g. 1 week, 2-3 days"
+                        value={bidDuration}
+                        onChange={(e) => setBidDuration(e.target.value)}
+                        className="h-10 rounded-xl text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Your Proposal *</label>
+                      <Textarea
+                        placeholder="Explain why you're the best fit for this project..."
+                        value={bidProposal}
+                        onChange={(e) => setBidProposal(e.target.value)}
+                        className="min-h-[100px] rounded-xl text-sm resize-none"
+                      />
+                    </div>
+                    <Button
+                      className="w-full animated-gradient text-white rounded-xl"
+                      onClick={handlePlaceBid}
+                      disabled={isSubmittingBid}
+                    >
+                      {isSubmittingBid ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
                         </div>
-                      ))}
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Send className="w-4 h-4" /> Submit Bid
+                        </div>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Already bid notice */}
+              {isSparky && hasActiveBid && (
+                <Card className="border-emerald-500/20 bg-emerald-500/5">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+                    <div>
+                      <p className="font-semibold text-sm">Bid Submitted</p>
+                      <p className="text-xs text-muted-foreground">You bid {userBid?.amount} credits</p>
                     </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No bids on this project yet.</p>
-                      <p className="mt-2 text-sm">Check back later for updates.</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Project closed notice */}
+              {isSparky && project.status !== "open" && (
+                <Card className="border-amber-500/20 bg-amber-500/5">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                    <div>
+                      <p className="font-semibold text-sm">Project {project.status}</p>
+                      <p className="text-xs text-muted-foreground">Not accepting new bids</p>
                     </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Project status card */}
+              <Card className="border-border/50">
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Status</span>
+                    <Badge className={`text-xs ${getStatusColor(project.status)}`}>{project.status}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Budget</span>
+                    <span className="font-bold text-primary">{project.budget} credits</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Deadline</span>
+                    <span className="font-medium text-sm">{new Date(project.deadline).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Bids</span>
+                    <span className="font-medium text-sm">{project.bids.length}</span>
+                  </div>
+                  {isOwner && project.status === "open" && (
+                    <Button variant="outline" size="sm" className="w-full mt-2 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={async () => {
+                      try {
+                        await projectAPI.updateProject(id!, { status: "cancelled" });
+                        toast({ title: "Project Cancelled" });
+                        navigate("/clients/open-projects");
+                      } catch { /* ignore */ }
+                    }}>
+                      <XCircle className="w-3.5 h-3.5 mr-1.5" /> Cancel Project
+                    </Button>
                   )}
                 </CardContent>
               </Card>
-            )}
-          </div>
-          
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Client Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Client Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback>{project.clientName[0]}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h4 className="font-medium">{project.clientName}</h4>
-                    <p className="text-sm text-gray-500">Member since {format(parseISO(project.createdAt), 'MMM yyyy')}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Project Status Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Project Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Status:</span>
-                    <Badge className={project.status === 'open' ? 'bg-green-500' : 'bg-yellow-500'}>
-                      {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Bids:</span>
-                    <span>{project.bids.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Budget:</span>
-                    <span>{project.budget} credits</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Posted:</span>
-                    <span>{format(parseISO(project.createdAt), 'MMM d, yyyy')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Deadline:</span>
-                    <span>{format(parseISO(project.deadline), 'MMM d, yyyy')}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Similar Projects Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Similar Projects</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mockProjects
-                    .filter(p => p.id !== project.id)
-                    .slice(0, 2)
-                    .map(p => (
-                      <div 
-                        key={p.id} 
-                        className="border-b pb-3 last:border-0" 
-                        onClick={() => navigate(`/clients/project/${p.id}`)}
-                        role="button"
-                      >
-                        <h4 className="font-medium hover:text-skillspark-purple cursor-pointer">
-                          {p.title}
-                        </h4>
-                        <p className="text-sm text-gray-500 mt-1">{p.budget} credits • {p.bids.length} bids</p>
-                      </div>
-                    ))
-                  }
-                </div>
-              </CardContent>
-            </Card>
+
+              <Link to="/clients/open-projects">
+                <Button variant="ghost" className="w-full gap-2 text-sm">
+                  <ArrowLeft className="w-4 h-4" /> All Projects
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

@@ -1,235 +1,189 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/context/AuthContext";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
+import { projectAPI } from "@/lib/api";
+import Navbar from "@/components/Navbar";
+import { Briefcase, Plus, X, ArrowLeft, Loader2 } from "lucide-react";
 
-const formSchema = z.object({
-  title: z.string().min(5, {
-    message: "Project title must be at least 5 characters.",
-  }),
-  description: z.string().min(20, {
-    message: "Description must be at least 20 characters.",
-  }),
-  requirements: z.string().min(10, {
-    message: "Requirements must be at least 10 characters.",
-  }),
-  budget: z.number().min(10, {
-    message: "Budget must be at least 10 credits.",
-  }),
-  deadline: z.string().refine(dateString => {
-    const date = new Date(dateString);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0); // Remove time part for comparison
-    return date >= now;
-  }, {
-    message: "Deadline must be in the future.",
-  }),
+const schema = z.object({
+  title: z.string().min(5, "Title must be at least 5 characters"),
+  description: z.string().min(30, "Description must be at least 30 characters"),
+  budget: z.coerce.number().min(10, "Minimum budget is 10 credits"),
+  deadline: z.string().min(1, "Please select a deadline"),
+  category: z.string().optional(),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormData = z.infer<typeof schema>;
 
 const CreateProject: React.FC = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const [requirements, setRequirements] = useState<string[]>([]);
+  const [reqInput, setReqInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      requirements: "",
-      budget: 100,
-      deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 weeks from now
-    },
+  const form = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { title: "", description: "", budget: 100, deadline: "", category: "general" },
   });
 
-  const onSubmit = async (values: FormValues) => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
+  // Min date = tomorrow
+  const minDate = new Date();
+  minDate.setDate(minDate.getDate() + 1);
+  const minDateStr = minDate.toISOString().split("T")[0];
 
+  const addRequirement = () => {
+    if (reqInput.trim() && !requirements.includes(reqInput.trim())) {
+      setRequirements((prev) => [...prev, reqInput.trim()]);
+      setReqInput("");
+    }
+  };
+
+  const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
-    
     try {
-      // In a real app, this would be an API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create a new project object
-      const newProject = {
-        id: `project-${Date.now()}`,
-        clientId: user.id,
-        clientName: user.name,
-        title: values.title,
-        description: values.description,
-        requirements: values.requirements.split(',').map(req => req.trim()),
-        budget: values.budget,
-        deadline: values.deadline,
-        status: 'open',
-        createdAt: new Date().toISOString(),
-        bids: []
-      };
-      
-      // In a real app, we would store this in a database
-      console.log("Created project:", newProject);
-      
-      toast({
-        title: "Project created!",
-        description: "Your project has been posted successfully.",
-      });
-      
-      navigate("/clients/open-projects");
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "There was a problem creating your project.",
-        variant: "destructive",
-      });
+      const res = await projectAPI.createProject({ ...data, requirements });
+      const projectId = res.data.project._id || res.data.project.id;
+      toast({ title: "🎉 Project Posted!", description: "Sparkies can now find and bid on your project." });
+      navigate(`/clients/project/${projectId}`);
+    } catch (error: unknown) {
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to create project.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="container mx-auto py-10 px-4">
-      <Button
-        variant="outline"
-        onClick={() => navigate("/clients/open-projects")}
-        className="mb-6"
-      >
-        ← Back to Projects
-      </Button>
-      
-      <Card className="max-w-3xl mx-auto">
-        <CardHeader>
-          <CardTitle className="text-2xl">Post a New Project</CardTitle>
-          <CardDescription>
-            Describe your project to find the perfect Sparky for the job
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Project Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="E.g., Website Redesign for Small Business" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <div className="flex min-h-screen flex-col bg-background">
+      <Navbar />
+      <main className="flex-1 py-8">
+        <div className="container max-w-2xl px-4 md:px-6">
+          <div className="flex items-center gap-4 mb-8">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-xl h-9 w-9">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-extrabold">Post a Project</h1>
+              <p className="text-muted-foreground mt-0.5">Describe your project and receive bids from talented Sparkies</p>
+            </div>
+          </div>
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Project Description</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Provide a detailed description of what you need..." 
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="requirements"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Skills & Requirements</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="List required skills, separated by commas (e.g., React, Node.js, UI Design)" 
-                        className="min-h-[80px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="budget"
-                  render={({ field }) => (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-primary" /> Project Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+                  <FormField control={form.control} name="title" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Budget (Credits)</FormLabel>
+                      <FormLabel>Project Title *</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          min="10"
+                        <Input placeholder="e.g. Build a responsive e-commerce website" className="h-11 rounded-xl" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description *</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Describe your project in detail. What are you building? What's the goal? What will a Sparky be doing?"
+                          className="min-h-[140px] rounded-xl resize-none"
                           {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
+                  )} />
 
-                <FormField
-                  control={form.control}
-                  name="deadline"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Deadline</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Calendar className="absolute top-3 left-3 h-4 w-4 text-skillspark-purple" />
-                          <Input 
-                            type="date"
-                            className="pl-10"
-                            {...field}
-                          />
+                  {/* Requirements */}
+                  <div className="space-y-2">
+                    <FormLabel>Required Skills / Technologies</FormLabel>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="e.g. React, Node.js, MongoDB"
+                        value={reqInput}
+                        onChange={(e) => setReqInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRequirement(); } }}
+                        className="h-10 rounded-xl"
+                      />
+                      <Button type="button" variant="outline" size="sm" onClick={addRequirement} className="h-10 gap-1 rounded-xl">
+                        <Plus className="w-3.5 h-3.5" /> Add
+                      </Button>
+                    </div>
+                    {requirements.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {requirements.map((req) => (
+                          <Badge key={req} variant="outline" className="gap-1.5 pr-1 border-primary/20 bg-primary/5">
+                            {req}
+                            <button type="button" onClick={() => setRequirements((prev) => prev.filter((r) => r !== req))}>
+                              <X className="w-3 h-3 text-muted-foreground hover:text-destructive transition-colors" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="budget" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Budget (credits) *</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={10} className="h-11 rounded-xl" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    <FormField control={form.control} name="deadline" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Deadline *</FormLabel>
+                        <FormControl>
+                          <Input type="date" min={minDateStr} className="h-11 rounded-xl" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <Button type="button" variant="outline" onClick={() => navigate(-1)} className="flex-1 rounded-xl h-11">
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting} className="flex-1 rounded-xl h-11 animated-gradient text-white">
+                      {isSubmitting ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Posting...
                         </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <CardFooter className="flex justify-between px-0 pt-6">
-                <Button type="button" variant="outline" onClick={() => navigate("/clients/open-projects")}>
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="bg-skillspark-purple hover:bg-skillspark-darkpurple"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Posting..." : "Post Project"}
-                </Button>
-              </CardFooter>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="w-4 h-4" /> Post Project
+                        </div>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
     </div>
   );
 };
