@@ -1,320 +1,402 @@
-
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { useCredits } from "@/context/CreditsContext";
 import { useSessions } from "@/context/SessionsContext";
+import { userAPI } from "@/lib/api";
+import type { SparkyProfile } from "@/types";
 import Navbar from "@/components/Navbar";
+import {
+  Search, Star, Clock, Coins, Zap, Globe, Users,
+  Calendar, CheckCircle, Filter, Loader2,
+} from "lucide-react";
 
-// Mock data for sparkies and their skills
-const mockSparkies = [
-  {
-    id: "1",
-    name: "John Smith",
-    title: "Senior Frontend Developer",
-    rating: 4.9,
-    sessionsCompleted: 48,
-    skills: ["JavaScript", "React", "Vue", "CSS"],
-    creditsPerHour: 15,
-    avatar: "https://github.com/shadcn.png",
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    title: "UX/UI Designer",
-    rating: 5.0,
-    sessionsCompleted: 32,
-    skills: ["Figma", "Adobe XD", "UI Design", "User Research"],
-    creditsPerHour: 20,
-    avatar: "https://github.com/shadcn.png",
-  },
-  {
-    id: "3",
-    name: "Michael Wilson",
-    title: "Full Stack Developer",
-    rating: 4.8,
-    sessionsCompleted: 56,
-    skills: ["Node.js", "Express", "MongoDB", "React"],
-    creditsPerHour: 18,
-    avatar: "https://github.com/shadcn.png",
-  },
-  {
-    id: "4",
-    name: "Emily Brown",
-    title: "Digital Marketing Specialist",
-    rating: 4.7,
-    sessionsCompleted: 29,
-    skills: ["SEO", "Content Marketing", "Social Media", "Google Analytics"],
-    creditsPerHour: 16,
-    avatar: "https://github.com/shadcn.png",
-  },
-  {
-    id: "5",
-    name: "David Lee",
-    title: "Data Scientist",
-    rating: 4.9,
-    sessionsCompleted: 37,
-    skills: ["Python", "Machine Learning", "Data Visualization", "Statistics"],
-    creditsPerHour: 22,
-    avatar: "https://github.com/shadcn.png",
-  },
+const timeSlots = [
+  "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+  "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "07:00 PM",
+];
+
+const categoryOptions = [
+  { value: "all", label: "All Categories" },
+  { value: "programming", label: "💻 Programming" },
+  { value: "design", label: "🎨 Design" },
+  { value: "marketing", label: "📈 Marketing" },
+  { value: "business", label: "💼 Business" },
+  { value: "personal", label: "🧠 Personal Development" },
+  { value: "music", label: "🎵 Music & Arts" },
+  { value: "language", label: "🌍 Languages" },
 ];
 
 const BookSparky: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [selectedSparky, setSelectedSparky] = useState<(typeof mockSparkies)[0] | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
-  const { toast } = useToast();
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const { credits, spendCredits } = useCredits();
+  const { credits, updateCredits } = useCredits();
   const { bookSession } = useSessions();
+  const { toast } = useToast();
 
-  if (!user) {
-    navigate("/login");
-    return null;
-  }
+  const [sparkies, setSparkies] = useState<SparkyProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const [selectedSparky, setSelectedSparky] = useState<SparkyProfile | null>(null);
+  const [selectedSkillIndex, setSelectedSkillIndex] = useState(0);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
+  const [isBooking, setIsBooking] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+  const minDate = new Date();
+  minDate.setDate(minDate.getDate() + 1);
+  const minDateStr = minDate.toISOString().split("T")[0];
+
+  const fetchSparkies = async () => {
+    setIsLoading(true);
+    try {
+      const params: Record<string, string> = {};
+      if (search) params.search = search;
+      if (category !== "all") params.category = category;
+      const res = await userAPI.getSparkies(params);
+      setSparkies(res.data.sparkies || []);
+    } catch {
+      setSparkies([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const filteredSparkies = mockSparkies.filter((sparky) => {
-    const matchesSearch = searchTerm === "" || 
-      sparky.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      sparky.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      sparky.title.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = categoryFilter === "all" || 
-      sparky.skills.some(skill => skill.toLowerCase().includes(categoryFilter.toLowerCase()));
-    
-    return matchesSearch && matchesCategory;
-  });
+  useEffect(() => { fetchSparkies(); }, [category]);
 
-  const handleBookSession = () => {
-    if (!selectedDate || !selectedSparky) {
-      toast({ 
-        title: "Error", 
-        description: "Please select a date for the session", 
-        variant: "destructive" 
-      });
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchSparkies();
+  };
+
+  const openBookingModal = (sparky: SparkyProfile) => {
+    setSelectedSparky(sparky);
+    setSelectedSkillIndex(0);
+    setSelectedDate("");
+    setSelectedTime("");
+    setBookingSuccess(false);
+  };
+
+  const handleBook = async () => {
+    if (!selectedSparky || !selectedDate || !selectedTime) {
+      toast({ title: "Missing Info", description: "Please select a date and time slot.", variant: "destructive" });
       return;
     }
+    const skill = selectedSparky.skills[selectedSkillIndex];
+    if (!skill) return;
 
-    if (credits < selectedSparky.creditsPerHour) {
+    if (credits < skill.creditsPerSession) {
       toast({
         title: "Insufficient Credits",
-        description: `You need ${selectedSparky.creditsPerHour} credits but only have ${credits}.`,
-        variant: "destructive"
+        description: `You need ${skill.creditsPerSession} credits but have ${credits}. Buy more credits to continue.`,
+        variant: "destructive",
       });
       return;
     }
 
-    setIsBookingSubmitting(true);
+    setIsBooking(true);
+    try {
+      // Parse date + time into ISO
+      const [hourStr, period] = selectedTime.split(" ");
+      let [hours, minutes] = hourStr.split(":").map(Number);
+      if (period === "PM" && hours !== 12) hours += 12;
+      if (period === "AM" && hours === 12) hours = 0;
+      const scheduledAt = new Date(selectedDate);
+      scheduledAt.setHours(hours, minutes, 0, 0);
 
-    // Simulate booking process
-    setTimeout(() => {
-      if (spendCredits(selectedSparky.creditsPerHour)) {
-        const success = bookSession(
-          selectedSparky.id,
-          selectedSparky.name,
-          `Session with ${selectedSparky.name}`,
-          selectedDate,
-          selectedSparky.creditsPerHour
-        );
+      const success = await bookSession(
+        selectedSparky.id || selectedSparky._id || "",
+        selectedSparky.name,
+        skill.name,
+        scheduledAt,
+        skill.creditsPerSession,
+        skill.sessionLength
+      );
 
-        setIsBookingSubmitting(false);
-        
-        if (success) {
-          setSelectedSparky(null);
-          setSelectedDate(undefined);
-          setIsDialogOpen(false);
-          
-          toast({
-            title: "Session Booked Successfully",
-            description: `Your session with ${selectedSparky.name} has been booked!`,
-          });
-          
-          // Redirect to profile
-          navigate('/clients/profile');
-        }
-      } else {
-        setIsBookingSubmitting(false);
+      if (success) {
+        // Update local credit display
+        updateCredits(credits - skill.creditsPerSession);
+        setBookingSuccess(true);
       }
-    }, 1000);
+    } finally {
+      setIsBooking(false);
+    }
   };
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
-      <main className="flex-1 py-10">
+      <main className="flex-1 py-8">
         <div className="container px-4 md:px-6">
-          <div className="flex items-center justify-between mb-6">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Book a Sparky</h1>
-              <p className="text-muted-foreground">Find the perfect expert to help you learn new skills</p>
+              <h1 className="text-3xl font-extrabold flex items-center gap-2">
+                <Zap className="w-7 h-7 text-primary" /> Book a Sparky
+              </h1>
+              <p className="text-muted-foreground mt-1">Find and book expert 1-on-1 sessions</p>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Your Credits</p>
-              <p className="text-2xl font-bold text-primary">{credits}</p>
+            <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-xl px-4 py-2">
+              <Coins className="w-4 h-4 text-primary" />
+              <span className="font-bold text-primary">{credits} credits available</span>
             </div>
           </div>
-          
-          {/* Filters and Search */}
-          <div className="flex flex-col md:flex-row gap-4 mb-8">
-            <div className="flex-1">
-              <Input
-                placeholder="Search for skills or sparkies..."
-                value={searchTerm}
-                onChange={handleSearch}
-                className="w-full"
-              />
+
+          {/* Filters */}
+          <Card className="mb-6 border-border/50">
+            <CardContent className="p-4">
+              <div className="flex flex-col md:flex-row gap-3">
+                <form onSubmit={handleSearch} className="flex flex-1 gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name or skill..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="pl-9 h-10 rounded-xl"
+                    />
+                  </div>
+                  <Button type="submit" variant="outline" className="h-10 rounded-xl gap-1.5">
+                    <Filter className="w-3.5 h-3.5" /> Search
+                  </Button>
+                </form>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="h-10 w-48 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoryOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sparkies Grid */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-muted-foreground">Finding Sparkies...</p>
+              </div>
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full md:w-[200px]">
-                <SelectValue placeholder="Filter by category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="javascript">JavaScript</SelectItem>
-                <SelectItem value="react">React</SelectItem>
-                <SelectItem value="design">UI Design</SelectItem>
-                <SelectItem value="node">Node.js</SelectItem>
-                <SelectItem value="python">Python</SelectItem>
-                <SelectItem value="marketing">Marketing</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Sparkies List */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredSparkies.map((sparky) => (
-              <Card key={sparky.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <CardContent className="p-0">
-                  <div className="p-6">
-                    <div className="flex items-start gap-4">
-                      <Avatar className="h-16 w-16">
-                        <AvatarImage src={sparky.avatar} alt={sparky.name} />
-                        <AvatarFallback>{sparky.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold">{sparky.name}</h3>
-                        <p className="text-sm text-muted-foreground">{sparky.title}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="flex items-center">
-                            <span className="text-amber-500 mr-1">★</span>
-                            {sparky.rating}
-                          </span>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="text-sm text-muted-foreground">{sparky.sessionsCompleted} sessions</span>
+          ) : sparkies.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-16 text-center">
+                <Zap className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <p className="font-semibold">No Sparkies found</p>
+                <p className="text-sm text-muted-foreground mt-1">Try adjusting your search or category</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {sparkies.map((sparky) => {
+                const id = sparky.id || sparky._id || "";
+                return (
+                  <Card key={id} className="group hover-lift border-border/50 hover:border-primary/30 transition-all duration-300 overflow-hidden">
+                    <CardContent className="p-5">
+                      {/* Header */}
+                      <div className="flex items-start gap-3 mb-4">
+                        <Avatar className="h-14 w-14 ring-2 ring-primary/20">
+                          <AvatarImage src={sparky.avatarUrl} />
+                          <AvatarFallback className="bg-primary/10 text-primary text-lg font-bold">
+                            {sparky.name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold truncate">{sparky.name}</h3>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {sparky.overallRating > 0 ? (
+                              <>
+                                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                                <span className="text-sm font-medium">{sparky.overallRating.toFixed(1)}</span>
+                                <span className="text-xs text-muted-foreground">({sparky.totalReviews} reviews)</span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">New Sparky</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Globe className="w-3 h-3" /> Remote
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Zap className="w-3 h-3" /> {sparky.sessionsCompleted} sessions
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="mt-4">
-                      <div className="flex flex-wrap gap-1 mb-4">
-                        {sparky.skills.map((skill, index) => (
-                          <Badge key={index} variant="outline" className="bg-muted">
-                            {skill}
-                          </Badge>
+
+                      {sparky.aboutMe && (
+                        <p className="text-xs text-muted-foreground mb-4 line-clamp-2">{sparky.aboutMe}</p>
+                      )}
+
+                      {/* Skills */}
+                      <div className="space-y-2 mb-4">
+                        {sparky.skills.slice(0, 3).map((skill) => (
+                          <div key={skill._id || skill.name} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                              <span className="text-xs font-medium truncate">{skill.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0 ml-2">
+                              <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                                <Clock className="w-3 h-3" /> {skill.sessionLength}m
+                              </span>
+                              <Badge variant="outline" className="text-xs border-primary/20 text-primary py-0 px-1.5">
+                                {skill.creditsPerSession}cr
+                              </Badge>
+                            </div>
+                          </div>
                         ))}
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-primary">{sparky.creditsPerHour} credits / hour</span>
-                        <Dialog open={isDialogOpen && selectedSparky?.id === sparky.id} onOpenChange={(open) => {
-                          setIsDialogOpen(open);
-                          if (!open) {
-                            setSelectedSparky(null);
-                            setSelectedDate(undefined);
-                          }
-                        }}>
-                          <DialogTrigger asChild>
-                            <Button 
-                              className="bg-primary hover:bg-primary/90"
-                              onClick={() => {
-                                setSelectedSparky(sparky);
-                                setIsDialogOpen(true);
-                              }}
-                            >
-                              Book Session
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-[425px]">
-                            <DialogHeader>
-                              <DialogTitle>Book a Session with {selectedSparky?.name}</DialogTitle>
-                              <DialogDescription>
-                                Select a date for your session. You can discuss specific times after booking.
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                              <div className="flex flex-col items-center gap-2">
-                                <Calendar
-                                  mode="single"
-                                  selected={selectedDate}
-                                  onSelect={setSelectedDate}
-                                  className="rounded-md border"
-                                  disabled={(date) => {
-                                    // Disable dates in the past
-                                    return date < new Date(new Date().setHours(0, 0, 0, 0));
-                                  }}
-                                />
-                              </div>
-                              <div className="flex flex-col gap-2 text-center">
-                                <p className="font-medium">Session Credits:</p>
-                                <p className="text-2xl font-bold text-primary">
-                                  {selectedSparky?.creditsPerHour} credits
-                                </p>
-                                <p className="text-sm text-muted-foreground">for a 1 hour session</p>
-                                <div className="mt-2 p-3 bg-muted rounded-lg">
-                                  <p className="text-sm font-medium">Your Credits: {credits}</p>
-                                  {selectedSparky && credits < selectedSparky.creditsPerHour && (
-                                    <p className="text-sm text-destructive mt-1">
-                                      Insufficient credits! You need {selectedSparky.creditsPerHour - credits} more credits.
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <DialogFooter>
-                              <Button 
-                                onClick={handleBookSession}
-                                className="w-full bg-primary hover:bg-primary/90"
-                                disabled={!selectedDate || isBookingSubmitting || (selectedSparky && credits < selectedSparky.creditsPerHour)}
-                              >
-                                {isBookingSubmitting ? "Booking..." : "Confirm Booking"}
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            
-            {filteredSparkies.length === 0 && (
-              <div className="col-span-full text-center py-12">
-                <p className="text-xl text-muted-foreground">No sparkies found matching your criteria</p>
-                <p className="mt-2 text-muted-foreground">Try adjusting your search or filters</p>
-              </div>
-            )}
-          </div>
+
+                      <Button
+                        onClick={() => openBookingModal(sparky)}
+                        className="w-full animated-gradient text-white font-semibold rounded-xl group-hover:shadow-lg group-hover:shadow-purple-900/20 transition-shadow"
+                      >
+                        <Calendar className="w-4 h-4 mr-2" /> Book Session
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       </main>
+
+      {/* ─── Booking Modal ───────────────────────────────────────────── */}
+      <Dialog open={!!selectedSparky} onOpenChange={(open) => { if (!open) setSelectedSparky(null); }}>
+        <DialogContent className="max-w-md">
+          {bookingSuccess ? (
+            <div className="text-center py-6">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 animate-scale-in">
+                <CheckCircle className="w-8 h-8 text-emerald-500" />
+              </div>
+              <DialogTitle className="text-xl font-bold mb-2">Booking Confirmed! 🎉</DialogTitle>
+              <p className="text-muted-foreground text-sm mb-6">
+                Your session with <strong>{selectedSparky?.name}</strong> has been booked. Check your dashboard for details.
+              </p>
+              <Button className="w-full animated-gradient text-white" onClick={() => setSelectedSparky(null)}>
+                Done
+              </Button>
+            </div>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={selectedSparky?.avatarUrl} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                      {selectedSparky?.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  Book {selectedSparky?.name}
+                </DialogTitle>
+                <DialogDescription>Select a skill, date, and time for your session.</DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 mt-2">
+                {/* Skill selector */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Choose Skill</label>
+                  <div className="space-y-2">
+                    {selectedSparky?.skills.map((skill, i) => (
+                      <div
+                        key={i}
+                        onClick={() => setSelectedSkillIndex(i)}
+                        className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedSkillIndex === i ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}
+                      >
+                        <div>
+                          <p className="font-semibold text-sm">{skill.name}</p>
+                          <p className="text-xs text-muted-foreground">{skill.sessionLength} min session</p>
+                        </div>
+                        <Badge variant="outline" className="border-primary/30 text-primary font-bold">
+                          {skill.creditsPerSession} cr
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Date */}
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Date</label>
+                  <Input
+                    type="date"
+                    min={minDateStr}
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="h-10 rounded-xl"
+                  />
+                </div>
+
+                {/* Time slots */}
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Time Slot</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {timeSlots.map((slot) => (
+                      <button
+                        key={slot}
+                        onClick={() => setSelectedTime(slot)}
+                        className={`py-1.5 px-2 rounded-lg border text-xs font-medium transition-all ${selectedTime === slot ? "border-primary bg-primary text-white" : "border-border hover:border-primary/40"}`}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Credit summary */}
+                {selectedSparky && (
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl text-sm">
+                    <span className="text-muted-foreground">Session cost</span>
+                    <span className="font-bold text-primary">
+                      {selectedSparky.skills[selectedSkillIndex]?.creditsPerSession} credits
+                    </span>
+                  </div>
+                )}
+
+                {credits < (selectedSparky?.skills[selectedSkillIndex]?.creditsPerSession || 0) && (
+                  <p className="text-xs text-destructive flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" />
+                    Insufficient credits. You need {selectedSparky?.skills[selectedSkillIndex]?.creditsPerSession} but have {credits}.
+                  </p>
+                )}
+
+                <Button
+                  className="w-full animated-gradient text-white font-semibold rounded-xl"
+                  onClick={handleBook}
+                  disabled={isBooking || !selectedDate || !selectedTime || credits < (selectedSparky?.skills[selectedSkillIndex]?.creditsPerSession || 0)}
+                >
+                  {isBooking ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Booking...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" /> Confirm Booking
+                    </div>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
